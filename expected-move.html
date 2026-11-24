@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Expected Move Calculator</title>
+<title>Expected Move from Strike IVs</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&display=swap">
 <style>
 :root{
@@ -29,7 +29,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
 main{max-width:1020px;margin:0 auto;padding:28px 18px 48px}
 h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
-.sub{color:var(--muted);margin:0 0 24px;max-width:60ch}
+.sub{color:var(--muted);margin:0 0 24px;max-width:62ch}
 .grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
 @media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
@@ -40,50 +40,38 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--band1);outline-
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
 .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
 .strike{font-size:.85rem;font-weight:700;margin:14px 0 6px}
-.hero{margin-bottom:20px}
 .big{font-size:2.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .big small{font-size:1rem;font-weight:500;color:var(--muted);margin-left:6px}
+.cap{color:var(--muted);margin:2px 0 0}
 .bar{position:relative;height:44px;margin:22px 0 8px;background:var(--band2);border-radius:6px}
 .bar .one{position:absolute;top:0;bottom:0;left:25%;width:50%;background:var(--band1);border-radius:4px;opacity:.85}
 .bar .spot{position:absolute;top:-8px;bottom:-8px;left:50%;width:3px;margin-left:-1.5px;background:var(--spot);border-radius:2px}
 .scale{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted)}
 .scale b{color:var(--ink)}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:10px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:10px 0 20px}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
 th:first-child,td:first-child{text-align:left}
 th{font-weight:500;color:var(--muted);font-size:.82rem}
 tr:last-child td{border-bottom:0}
-.wrap{overflow-x:auto}
 .note{font-size:.82rem;color:var(--muted);margin:12px 0 0}
-.err{color:var(--spot);font-size:.9rem;margin:0}
+.err{color:var(--spot);margin:0;font-weight:500}
 </style>
 </head>
 <body>
 <main>
-  <h1>Expected move from implied volatility</h1>
-  <p class="sub">Enter the spot price and the call and put IV at the strikes just below and just above it. The page interpolates a single at-the-money IV and gives the one and two standard deviation range.</p>
+  <h1>Expected move from strike IVs</h1>
+  <p class="sub">Enter the stock price, the expiration date, and the call and put IV at the strike just below and just above spot. The page interpolates an ATM IV to the stock price, then applies S × IV × √(days ÷ 365).</p>
 
   <div class="grid">
     <section class="panel" aria-label="Inputs">
       <h2>Inputs</h2>
       <div class="row">
-        <div><label for="spot">Spot price</label><input id="spot" type="number" step="any" value="469"></div>
-        <div><label for="dte">Days to expiration</label><input id="dte" type="number" step="any" value="7"></div>
+        <div><label for="spot">Stock price</label><input id="spot" type="number" step="any" value="469"></div>
+        <div><label for="exp">Expiration date</label><input id="exp" type="date"></div>
       </div>
-      <div class="row">
-        <div><label for="fmt">IV format</label>
-          <select id="fmt"><option value="dec">Decimal (1.35 = 135%)</option><option value="pct">Percent (135 = 135%)</option></select></div>
-        <div><label for="basis">Day count</label>
-          <select id="basis"><option value="365">Calendar (365)</option><option value="252">Trading (252)</option></select></div>
-      </div>
-      <div class="row">
-        <div><label for="method">ATM IV method</label>
-          <select id="method"><option value="otm">OTM only (put below, call above)</option><option value="avg">Average call and put</option></select></div>
-        <div></div>
-      </div>
-
       <div class="strike">Strike below spot</div>
       <div class="row3">
         <div><label for="k1">Strike</label><input id="k1" type="number" step="any" value="467.5"></div>
@@ -96,23 +84,31 @@ tr:last-child td{border-bottom:0}
         <div><label for="c2">Call IV</label><input id="c2" type="number" step="any" value="1.3777"></div>
         <div><label for="p2">Put IV</label><input id="p2" type="number" step="any" value="1.3446"></div>
       </div>
+      <div class="row" style="margin-top:14px">
+        <div><label for="method">ATM IV method</label>
+          <select id="method"><option value="otm">OTM only (put below, call above)</option><option value="avg">Average call and put</option></select></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div><label for="fmt">IV format</label>
+          <select id="fmt"><option value="dec">Decimal (1.35 = 135%)</option><option value="pct">Percent (135 = 135%)</option></select></div>
+        <div><label for="basis">Day count</label>
+          <select id="basis"><option value="365">Calendar days (365)</option><option value="252">Trading days (252)</option></select></div>
+      </div>
       <p class="err" id="err" role="alert"></p>
     </section>
 
     <section class="panel" aria-live="polite" aria-label="Results">
-      <div class="hero">
-        <div class="big" id="em">–<small id="emPct"></small></div>
-        <div class="sub" style="margin:2px 0 0">One standard deviation move, about 68% probability</div>
-        <div class="bar" aria-hidden="true"><div class="one"></div><div class="spot"></div></div>
-        <div class="scale"><span id="s2lo"></span><span id="s1lo"></span><b id="sspot"></b><span id="s1hi"></span><span id="s2hi"></span></div>
-        <div class="legend"><span><i style="background:var(--band1)"></i>1 SD range</span><span><i style="background:var(--band2)"></i>2 SD range</span><span><i style="background:var(--spot)"></i>Spot</span></div>
-      </div>
-
+      <div class="big" id="em">–</div>
+      <p class="cap">One standard deviation move, about 68% probability</p>
+      <div class="bar" aria-hidden="true"><div class="one"></div><div class="spot"></div></div>
+      <div class="scale"><span id="s2lo"></span><span id="s1lo"></span><b id="sspot"></b><span id="s1hi"></span><span id="s2hi"></span></div>
+      <div class="legend"><span><i style="background:var(--band1)"></i>1 SD range</span><span><i style="background:var(--band2)"></i>2 SD range</span><span><i style="background:var(--spot)"></i>Spot</span></div>
       <div class="wrap">
-      <table>
-        <thead><tr><th>Measure</th><th>Lower</th><th>Upper</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
+        <table>
+          <thead><tr><th>Measure</th><th>Lower</th><th>Upper</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
       </div>
       <p class="note" id="meta"></p>
     </section>
@@ -122,39 +118,59 @@ tr:last-child td{border-bottom:0}
 <script>
 (function(){
   var $ = function(id){ return document.getElementById(id); };
-  var ids = ["spot","dte","fmt","basis","method","k1","c1","p1","k2","c2","p2"];
   var money = function(x){ return x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); };
   var pct = function(x){ return (x*100).toFixed(2) + "%"; };
+  var DAY = 86400000;
 
-  function interp(w, a, b){ return a + w*(b-a); }
+  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function pad(n){ return (n<10?"0":"") + n; }
+  function toISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function parseISO(s){ var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+
+  function weekdaysBetween(a, b){ // weekdays after a, up to and including b; holidays ignored
+    var n = 0, d = new Date(a);
+    while (d < b){ d = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1); var w = d.getDay(); if (w !== 0 && w !== 6) n++; }
+    return n;
+  }
+
+  var today = startOfDay(new Date());
+  $("exp").min = toISO(today);
+  $("exp").value = toISO(new Date(today.getFullYear(), today.getMonth(), today.getDate()+7));
+
+  function fail(msg){
+    $("err").textContent = msg;
+    $("em").textContent = "–";
+    ["s2lo","s1lo","sspot","s1hi","s2hi"].forEach(function(i){ $(i).textContent = ""; });
+    $("rows").innerHTML = ""; $("meta").textContent = "";
+  }
 
   function calc(){
-    var v = {};
-    ids.forEach(function(i){ v[i] = $(i).value; });
-    var S = parseFloat(v.spot), D = parseFloat(v.dte), basis = parseFloat(v.basis);
-    var k1 = parseFloat(v.k1), k2 = parseFloat(v.k2);
-    var scale = v.fmt === "pct" ? 0.01 : 1;
-    var c1 = parseFloat(v.c1)*scale, p1 = parseFloat(v.p1)*scale;
-    var c2 = parseFloat(v.c2)*scale, p2 = parseFloat(v.p2)*scale;
-    var vals = [S,D,k1,k2,c1,p1,c2,p2];
-    var err = $("err");
+    var S = parseFloat($("spot").value), scale = $("fmt").value === "pct" ? 0.01 : 1;
+    var k1 = parseFloat($("k1").value), k2 = parseFloat($("k2").value);
+    var c1 = parseFloat($("c1").value)*scale, p1 = parseFloat($("p1").value)*scale;
+    var c2 = parseFloat($("c2").value)*scale, p2 = parseFloat($("p2").value)*scale;
+    var basis = parseFloat($("basis").value), expStr = $("exp").value;
 
-    if (vals.some(function(x){ return !isFinite(x); })) { err.textContent = "Fill in every field with a number."; return; }
-    if (S <= 0 || D <= 0) { err.textContent = "Spot and days to expiration must be above zero."; return; }
-    if (k1 >= k2) { err.textContent = "The lower strike must be below the upper strike."; return; }
-    err.textContent = (S < k1 || S > k2) ? "Spot is outside the two strikes, so the IV is extrapolated." : "";
+    if (![S,k1,k2,c1,p1,c2,p2].every(isFinite) || !expStr) return fail("Fill in the stock price, both strikes with their IVs, and the expiration date.");
+    if (S <= 0 || c1 <= 0 || p1 <= 0 || c2 <= 0 || p2 <= 0) return fail("Stock price and IVs must be above zero.");
+    if (k1 >= k2) return fail("The lower strike must be below the upper strike.");
 
     var w = (S - k1)/(k2 - k1);
-    var otm = interp(w, p1, c2);
-    var avg = interp(w, (c1+p1)/2, (c2+p2)/2);
-    var iv = v.method === "otm" ? otm : avg;
-    var putAtm = interp(w, p1, p2), callAtm = interp(w, c1, c2);
+    var lerp = function(a, b){ return a + w*(b-a); };
+    var cIv = lerp(c1, c2), pIv = lerp(p1, p2);
+    var otm = lerp(p1, c2), avgIv = lerp((c1+p1)/2, (c2+p2)/2);
+    var ivSel = $("method").value === "otm" ? otm : avgIv;
+    var warn = (S < k1 || S > k2) ? "Spot is outside the two strikes, so the IV is extrapolated." : "";
 
-    var t = Math.sqrt(D/basis);
-    var em = S*iv*t;
-    var daily = S*iv/Math.sqrt(252);
-    var down = S*putAtm*t, up = S*callAtm*t;
-    var x = iv*t;
+    var exp = parseISO(expStr);
+    var cal = Math.round((exp - today)/DAY);
+    if (cal <= 0) return fail("The expiration date must be after today.");
+    var D = basis === 365 ? cal : weekdaysBetween(today, exp);
+    if (D <= 0) return fail("There are no trading days before that expiration.");
+    $("err").textContent = warn;
+
+    var iv = ivSel, t = Math.sqrt(D/basis);
+    var em = S*iv*t, up = S*cIv*t, down = S*pIv*t, x = iv*t;
 
     $("em").innerHTML = "±$" + money(em) + "<small>" + pct(em/S) + " of spot</small>";
     $("s2lo").textContent = money(S-2*em);
@@ -172,15 +188,16 @@ tr:last-child td{border-bottom:0}
     $("rows").innerHTML = rows.map(function(r){
       return "<tr><td>"+r[0]+"</td><td>$"+money(r[1])+"</td><td>$"+money(r[2])+"</td></tr>";
     }).join("") +
-      "<tr><td>ATM IV, OTM method</td><td colspan='2'>"+pct(otm)+"</td></tr>" +
-      "<tr><td>ATM IV, average method</td><td colspan='2'>"+pct(avg)+"</td></tr>" +
-      "<tr><td>Daily move (252-day basis)</td><td colspan='2'>±$"+money(daily)+"</td></tr>" +
+      "<tr><td>ATM IV used (" + ($("method").value === "otm" ? "OTM method" : "average method") + ")</td><td colspan='2'>"+pct(iv)+"</td></tr>" +
+      "<tr><td>ATM IV, OTM / average</td><td colspan='2'>"+pct(otm)+" / "+pct(avgIv)+"</td></tr>" +
+      "<tr><td>Days used</td><td colspan='2'>"+D+(basis===365?" calendar":" trading")+(basis===365?"":" ("+cal+" calendar)")+"</td></tr>" +
+      "<tr><td>Daily move (252-day basis)</td><td colspan='2'>±$"+money(S*iv/Math.sqrt(252))+"</td></tr>" +
       "<tr><td>Implied straddle price (EM ÷ 0.85)</td><td colspan='2'>$"+money(em/0.85)+"</td></tr>";
 
-    $("meta").textContent = "EM = S × IV × √(DTE ÷ " + basis + "). Strike weight on the upper strike: " + w.toFixed(3) + ". Implied moves are risk-neutral estimates and tend to run slightly above realized moves.";
+    $("meta").textContent = "Days are counted from today (" + toISO(today) + ") to the expiration date. The trading-day count skips weekends but not market holidays. Implied moves are risk-neutral estimates and tend to run slightly above realized moves.";
   }
 
-  ids.forEach(function(i){ $(i).addEventListener("input", calc); });
+  ["spot","exp","k1","c1","p1","k2","c2","p2","method","fmt","basis"].forEach(function(i){ $(i).addEventListener("input", calc); });
   calc();
 })();
 </script>
